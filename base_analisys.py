@@ -234,10 +234,14 @@ DF["age"] = DF["birthday"].apply(lambda x: round((dt.date.today() - str_to_date(
 DF["D"] = DF["date"].apply(str_to_date)
 
 #gender_age_distribution(DF)
-payed_distribution(DF)
+#payed_distribution(DF)
 #insurers_distribution(DF)
 #doctors_distribution(DF)
 
+
+#                                                             количество уникальных пациентов бывших у этого врача больше одного раза
+# процент возвращающихся пациентов для конкретного врача = -----------------------------------------------------------------------------
+#                                                                            количество уникальных пациентов этого врача
 
 
 
