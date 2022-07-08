@@ -20,7 +20,7 @@
  + распределение по врачам (гистограмма)
    + распределение количества приемов во времени, в разрезе врачей, можно выделить и исключить врачей с малым количеством приемов
  - распределение диагнозов ??? их много, наверно не стоит
- - здесь уже можно посчитать эту метрику:
+ - здесь уже можно посчитать эту метрику (назову "метрика процента"):
                                                             количество уникальных пациентов бывших у этого врача больше одного раза
 процент возвращающихся пациентов для конкретного врача = -----------------------------------------------------------------------------
                                                                            количество уникальных пациентов этого врача
@@ -195,15 +195,18 @@ def doctors_distribution(DF):
     #d_work["pat on day"] = d_work["patients"]/d_work["period, days"]
     # оставил врачей проработавших дольше начала 2016 года, больше 100 дней и принявших больше 100 пациентов (да, такие есть)
     d_work = d_work[(d_work["end"] > dt.date(2015, 12, 31)) & (d_work["period, days"] > 100) & (d_work["patients"] > 100)]
-    d_work[["period, days", "patients"]].plot.bar(rot = 0, xlabel = "Код врача", ylabel = "Количество ", grid = True)
-    plt.legend(["отработанные дни", "принятые пациенты"])
-    plt.title("Количество дней проработанных и пациентов принятых врачом")
-    plt.show()
+    #d_work[["period, days", "patients"]].plot.bar(rot = 0, xlabel = "Код врача", ylabel = "Количество ", grid = True)
+    #plt.legend(["отработанные дни", "принятые пациенты"])
+    #plt.title("Количество дней проработанных и пациентов принятых врачом")
+    #plt.show()
     
     # через внутреннее соединение со списком врачей, оставленных для анализа, в датафрейме с приемами оставил только интересующие строчки
     # reset_index() - для перевода ind_codeCat из индекса в столбец
     # reset_index(drop = True) - чтобы после соединения индекс датафрейма был последовательный
     #doctors = doctors.merge(d_work.reset_index()["ind_codeCat"], on = "ind_codeCat").reset_index(drop = True)
+    
+    #print(d_work.info())
+    return d_work.reset_index()["ind_codeCat"]
     
     """
     Выводы:
@@ -236,13 +239,52 @@ DF["D"] = DF["date"].apply(str_to_date)
 #gender_age_distribution(DF)
 #payed_distribution(DF)
 #insurers_distribution(DF)
-#doctors_distribution(DF)
+doctors = doctors_distribution(DF)
+DF = DF.merge(doctors, on = "ind_codeCat").reset_index(drop = True)
+#print(type(doctors))
 
 
 #                                                             количество уникальных пациентов бывших у этого врача больше одного раза
 # процент возвращающихся пациентов для конкретного врача = -----------------------------------------------------------------------------
 #                                                                            количество уникальных пациентов этого врача
 
+#print(DF.info())
+
+
+#print(DF.ind_codeCat.unique())
+# коды врачей заменю другим целым числом, потому что сейчас коды не идут последовательно
+# сначала создадим словарь сопоставляющий каждому уникальному коду врача целое число
+ind_code = dict()
+# в цикле его заполним
+for i, code in enumerate(DF.ind_codeCat.unique()):
+    # в словаре уникальный код врача это ключ для целого числа
+    ind_code[code] = i
+# создаем столбец с помощью лямбда функции, которая просто возвращает целое число из словаря по коду врача
+DF.loc[:, "ind_codeCat"] = DF["ind_codeCat"].apply(lambda c: ind_code[c])
+
+# количество уникальных пациентов каждого врача
+#print(DF[["client_cod", "ind_codeCat"]].groupby("ind_codeCat").value_counts())
+# получил датафрейм, в каждой строчке которого записано какой пациент у какого врача сколько раз был
+#df_ = DF[["client_cod", "ind_codeCat"]].groupby("ind_codeCat").value_counts().reset_index()
+# предыдущая и следующая строки дают одинаковые датафреймы, но с разным порядком столбцов и строк
+df = DF[["client_cod", "ind_codeCat"]].value_counts(["client_cod", "ind_codeCat"]).reset_index()
+df.columns = list(df.columns[:-1]) + ["priems"]
+#print(df_.info())
+#print(df.info())
+df = pd.merge(df[["client_cod", "ind_codeCat"]].groupby("ind_codeCat").count(), \
+         df[df.priems > 1][["client_cod", "ind_codeCat"]].groupby("ind_codeCat").count(), \
+         on = "ind_codeCat").reset_index()
+df.columns = ["ind_codeCat", "all_unique", "repeat"]
+df["percent"] = df["repeat"]/df["all_unique"]
+print(df)
+df["percent"].plot.bar(rot = 0, xlabel = "Код врача", ylabel = "Процент ", grid = True)
+plt.title("Процент возвращающихся пациентов для каждого врача")
+plt.show()
+"""
+метрика процента показала, что за все время работы стоматологии из врачей принятых в рассмотрение
+минимальный процент возвращающихся пациентов больше 16,
+максимальный процент - 47
+"""
 
 
 
