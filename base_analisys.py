@@ -278,9 +278,9 @@ df = pd.merge(df[["client_cod", "ind_codeCat"]].groupby("ind_codeCat").count(), 
 df.columns = ["ind_codeCat", "all_unique", "repeat"]
 df["percent"] = df["repeat"]/df["all_unique"]
 print(df)
-#df["percent"].plot.bar(rot = 0, xlabel = "Код врача", ylabel = "Процент ", grid = True)
-#plt.title("Процент возвращающихся пациентов для каждого врача")
-#plt.show()
+df["percent"].plot.bar(rot = 0, xlabel = "Код врача", ylabel = "Процент ", grid = True)
+plt.title("Процент возвращающихся пациентов для каждого врача")
+plt.show()
 """
 метрика процента показала, что за все время работы стоматологии из врачей принятых в рассмотрение
 минимальный процент возвращающихся пациентов больше 16,
