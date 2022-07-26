@@ -19,7 +19,7 @@ CRR = ------- * 100%
 Ce - количество пациентов на конец периода
 Cn - количество новых пациентов, приобретенных за период
 Cb - количество пациентов на начало периода
-попробую посчитать вместе и сравнить, но по смыслу похоже одинаковое
+по смыслу обе формулы одинаковые
 """
 
 import datetime as dt
@@ -78,13 +78,11 @@ def load_and_prepare() -> pd.DataFrame:
     DF.loc[4832, "birthday"] = f"{yd800(DF.loc[4832, 'birthday'])}{DF.loc[4832, 'birthday'][4:]}"
     DF.loc[17566, "birthday"] = f"{yd800(DF.loc[17566, 'birthday'])}{DF.loc[17566, 'birthday'][4:]}"
     DF["age"] = DF["birthday"].apply(lambda x: round((dt.date.today() - str_to_date(x, 0)).days / 365))
+    # в столбце age (выше) я получил возраст пациента на момент исследования (сейчас)
+    # здесь я получаю возраст пациента на момент приема
+    DF["A"] = DF.apply(lambda x: round((str_to_date(x.date, 0) - str_to_date(x.birthday, 0)).days / 365), axis = 1)
     # создаю новый столбец, в котором дата имеет тип datetime.date для последующей работы с периодами
     DF["D"] = DF["date"].apply(str_to_date)
-    #print(type(DF.loc[0, "date"]))
-    #print(type(DF.loc[0, "birthday"]))
-    #print(type(DF.loc[0, "age"]))
-    #print(type(DF.loc[0, "D"]))
-    #print(DF.age.max())
     # хочу оставить врачей проработавших дольше начала 2016 года, больше 100 дней и принявших больше 100 пациентов (да, такие есть)
     # начало работы каждого врача
     d_begin_work = DF[["ind_codeCat", "D"]].groupby("ind_codeCat").min().sort_values("D", ascending = True)
@@ -121,7 +119,7 @@ def load_and_prepare() -> pd.DataFrame:
 
     # исключаю столбцы date и birthday, которые содержат строковые данные
     # и уже имеются столбцы с этими данными, но подходящего типа
-    return DF[list(set(DF.columns) - set(["date", "birthday"]))]
+    return DF[list(set(DF.columns) - set(["date", "birthday", "age"]))]
 
 def color_string(n: int) -> str:
   """
@@ -136,88 +134,89 @@ def color_string(n: int) -> str:
     b = 125 * (n % 2 + 1)
   return f"#{r:02x}{g:02x}{b:02x}"
 
-DF = load_and_prepare()
+if __name__ == "__main__":
+    DF = load_and_prepare()
 
-"""
-CRR для всего срока и всех врачей
-"""
-# берем столбец client_cod, группируем и считаем количество строк
-# по сути получаем количество посещений конкретным пациентом за все время
-# DF["client_cod"] - получается Series, value_counts для Series не получает subset (как для датафрейма) и normalize по умолчанию False
-df = DF["client_cod"].value_counts().reset_index()
-df.columns = list(df.columns[:-1]) + ["priems"]
-
-print("CRR для всего срока и всех врачей:\n", round(df[df.priems > 1]["index"].count() / df["index"].count(), 3))
-
-"""
-CRR для всего срока и каждого врача
-"""
-# берем столбцы client_cod и ind_codeCat, группируем сначала по первому, потом по второму и считаем количество строк
-# по сути получаем количество посещений конкретным пациентом конкретного врача
-df = DF[["client_cod", "ind_codeCat"]].value_counts(["client_cod", "ind_codeCat"]).reset_index()
-df.columns = list(df.columns[:-1]) + ["priems"]
-
-# df[["client_cod", "ind_codeCat"]].groupby("ind_codeCat").count() - количество уникальных пациентов врача
-# df[df.priems > 1][["client_cod", "ind_codeCat"]].groupby("ind_codeCat").count() - количество пациентов бывших у врача больше одного раза
-df = pd.merge(df[["client_cod", "ind_codeCat"]].groupby("ind_codeCat").count(), \
-              df[df.priems > 1][["client_cod", "ind_codeCat"]].groupby("ind_codeCat").count(), \
-              on = "ind_codeCat").reset_index()
-df.columns = ["ind_codeCat", "all_unique", "repeat"]
-df["percent"] = (df["repeat"]/df["all_unique"]).apply(round, args = (3,))
-
-print("CRR для всего срока и каждого врача:\n", df)
-
-"""
-CRR ежегодно для всех врачей
-"""
-CRR_by_year = list()
-for i in range(2014, 2022):
-    # выбираем строки датафрейма, которые соответствуют i-му году
-    df = DF[(DF.D > dt.date(i-1, 12, 31)) & (DF.D < dt.date(i+1, 1, 1))]["client_cod"].value_counts().reset_index()
+    """
+    CRR для всего срока и всех врачей
+    """
+    # берем столбец client_cod, группируем и считаем количество строк
+    # по сути получаем количество посещений конкретным пациентом за все время
+    # DF["client_cod"] - получается Series, value_counts для Series не получает subset (как для датафрейма) и normalize по умолчанию False
+    df = DF["client_cod"].value_counts().reset_index()
     df.columns = list(df.columns[:-1]) + ["priems"]
-    CRR_by_year.append(round(df[df.priems > 1]["index"].count() / df["index"].count(), 3))
-    print(f"CRR за {i} год для всех врачей:", CRR_by_year[-1])
 
-"""
-CRR ежегодно для каждого врача
-"""
-# датафрейм, в который будут записываться CRR для каждого врача за каждый год
-CRR_by_all = pd.DataFrame(data = {"ind_codeCat": DF["ind_codeCat"].unique()})
-for i in range(2014, 2022):
-    # выбираем строки датафрейма, которые соответствуют i-му году
-    df = DF[(DF.D > dt.date(i-1, 12, 31)) & (DF.D < dt.date(i+1, 1, 1))][["client_cod", "ind_codeCat"]].value_counts(["client_cod", "ind_codeCat"]).reset_index()
+    print("CRR для всего срока и всех врачей:\n", round(df[df.priems > 1]["index"].count() / df["index"].count(), 3))
+
+    """
+    CRR для всего срока и каждого врача
+    """
+    # берем столбцы client_cod и ind_codeCat, группируем сначала по первому, потом по второму и считаем количество строк
+    # по сути получаем количество посещений конкретным пациентом конкретного врача
+    df = DF[["client_cod", "ind_codeCat"]].value_counts(["client_cod", "ind_codeCat"]).reset_index()
     df.columns = list(df.columns[:-1]) + ["priems"]
+
+    # df[["client_cod", "ind_codeCat"]].groupby("ind_codeCat").count() - количество уникальных пациентов врача
+    # df[df.priems > 1][["client_cod", "ind_codeCat"]].groupby("ind_codeCat").count() - количество пациентов бывших у врача больше одного раза
     df = pd.merge(df[["client_cod", "ind_codeCat"]].groupby("ind_codeCat").count(), \
                   df[df.priems > 1][["client_cod", "ind_codeCat"]].groupby("ind_codeCat").count(), \
                   on = "ind_codeCat").reset_index()
     df.columns = ["ind_codeCat", "all_unique", "repeat"]
-    # вычисляю процент и округляю до 3-х цифр после запятой
     df["percent"] = (df["repeat"]/df["all_unique"]).apply(round, args = (3,))
-    # добавляю в датафрейм столбец с вычисленным процентом, но через внешнее соединение, чтобы не потерять данные
-    CRR_by_all = CRR_by_all.merge(df[["ind_codeCat", "percent"]], how = "outer", on = "ind_codeCat")
-    # столбцы датафрейма именуются годами
-    CRR_by_all.columns = list(CRR_by_all.columns[:-1]) + [str(i)]
-# пропущенные значения заполняю нулями
-CRR_by_all.fillna(0, inplace = True)
-# транспонирую для облегчения построения визуализаций
-CRR_by_all_transp = CRR_by_all.T
-#print(CRR_by_all_transp)
-#print(CRR_by_all)
 
-if True:
-    fig, ax = plt.subplots()
-    # список для легенды
-    leg = []
-    # оставил: 0, 2, 3, 4, 7, 8 - коды врачей
-    cols = [0, 2, 3, 4, 7, 8]
-    for i, col in enumerate(cols): #CRR_by_all_transp.columns: - решил все не строить, т.к. у некоторых или мало значений, или не работают
-        ax.plot(CRR_by_all_transp.index.values[1:], CRR_by_all_transp[col].iloc[1:], c = color_string(i), alpha = 0.5)
-        leg.append(col)
-    ax.grid(True)
-    ax.set_xlabel("Год")
-    ax.set_ylabel("CRR")
-    ax.legend(leg)
-    ax.set_title("Коэффициент удержания клиентов (Customer Retention Rate, CRR) по годам для некоторых врачей")
-    plt.show()
+    print("CRR для всего срока и каждого врача:\n", df)
+
+    """
+    CRR ежегодно для всех врачей
+    """
+    CRR_by_year = list()
+    for i in range(2014, 2022):
+        # выбираем строки датафрейма, которые соответствуют i-му году
+        df = DF[(DF.D > dt.date(i-1, 12, 31)) & (DF.D < dt.date(i+1, 1, 1))]["client_cod"].value_counts().reset_index()
+        df.columns = list(df.columns[:-1]) + ["priems"]
+        CRR_by_year.append(round(df[df.priems > 1]["index"].count() / df["index"].count(), 3))
+        print(f"CRR за {i} год для всех врачей:", CRR_by_year[-1])
+
+    """
+    CRR ежегодно для каждого врача
+    """
+    # датафрейм, в который будут записываться CRR для каждого врача за каждый год
+    CRR_by_all = pd.DataFrame(data = {"ind_codeCat": DF["ind_codeCat"].unique()})
+    for i in range(2014, 2022):
+        # выбираем строки датафрейма, которые соответствуют i-му году
+        df = DF[(DF.D > dt.date(i-1, 12, 31)) & (DF.D < dt.date(i+1, 1, 1))][["client_cod", "ind_codeCat"]].value_counts(["client_cod", "ind_codeCat"]).reset_index()
+        df.columns = list(df.columns[:-1]) + ["priems"]
+        df = pd.merge(df[["client_cod", "ind_codeCat"]].groupby("ind_codeCat").count(), \
+                      df[df.priems > 1][["client_cod", "ind_codeCat"]].groupby("ind_codeCat").count(), \
+                      on = "ind_codeCat").reset_index()
+        df.columns = ["ind_codeCat", "all_unique", "repeat"]
+        # вычисляю процент и округляю до 3-х цифр после запятой
+        df["percent"] = (df["repeat"]/df["all_unique"]).apply(round, args = (3,))
+        # добавляю в датафрейм столбец с вычисленным процентом, но через внешнее соединение, чтобы не потерять данные
+        CRR_by_all = CRR_by_all.merge(df[["ind_codeCat", "percent"]], how = "outer", on = "ind_codeCat")
+        # столбцы датафрейма именуются годами
+        CRR_by_all.columns = list(CRR_by_all.columns[:-1]) + [str(i)]
+    # пропущенные значения заполняю нулями
+    CRR_by_all.fillna(0, inplace = True)
+    # транспонирую для облегчения построения визуализаций
+    CRR_by_all_transp = CRR_by_all.T
+    #print(CRR_by_all_transp)
+    print(CRR_by_all)
+
+    if True:
+        fig, ax = plt.subplots()
+        # список для легенды
+        leg = []
+        # оставил: 0, 2, 3, 4, 7, 8 - коды врачей
+        cols = [0, 2, 3, 4, 7, 8]
+        for i, col in enumerate(cols): #CRR_by_all_transp.columns: - решил все не строить, т.к. у некоторых или мало значений, или не работают уже
+            ax.plot(CRR_by_all_transp.index.values[1:], CRR_by_all_transp[col].iloc[1:], c = color_string(i), alpha = 0.5)
+            leg.append(col)
+        ax.grid(True)
+        ax.set_xlabel("Год")
+        ax.set_ylabel("CRR")
+        ax.legend(leg)
+        ax.set_title("Коэффициент удержания клиентов (Customer Retention Rate, CRR) по годам для некоторых врачей")
+        plt.show()
 
 
