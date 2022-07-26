@@ -20,7 +20,7 @@
  + распределение по врачам (гистограмма)
    + распределение количества приемов во времени, в разрезе врачей, можно выделить и исключить врачей с малым количеством приемов
  - распределение диагнозов ??? их много, наверно не стоит
- - здесь уже можно посчитать эту метрику (Коэффициент удержания клиентов, (Customer Retention Rate, CRR)):
+ + здесь уже можно посчитать эту метрику (Коэффициент удержания клиентов, (Customer Retention Rate, CRR)):
                                                             количество уникальных пациентов бывших у этого врача больше одного раза
 процент возвращающихся пациентов для конкретного врача = -----------------------------------------------------------------------------
                                                                            количество уникальных пациентов этого врача
@@ -76,9 +76,27 @@ def gender_age_distribution(DF):
     weight0 = len(df_small[df_small["genderCat"] == 0])
     weight1 = len(df_small[df_small["genderCat"] == 1])
     bins_ = 70
-    df_small["age"].plot.hist(bins = bins_, alpha = 0.5, weights = [1./weight]*weight, color = "b")
-    df_small[df_small["genderCat"] == 0]["age"].plot.hist(bins = bins_, alpha = 0.5, weights = [1./weight0]*weight0, color = "r")
-    df_small[df_small["genderCat"] == 1]["age"].plot.hist(bins = bins_, legend = False, grid = True, alpha = 0.5, weights = [1./weight1]*weight1, color = "g")
+#    df_small["age"].plot.hist(bins = bins_, alpha = 0.5, weights = [1./weight]*weight, color = "b")
+#    df_small[df_small["genderCat"] == 0]["age"].plot.hist(bins = bins_, alpha = 0.5, weights = [1./weight0]*weight0, color = "r")
+#    df_small[df_small["genderCat"] == 1]["age"].plot.hist(bins = bins_, legend = False, grid = True, alpha = 0.5, weights = [1./weight1]*weight1, color = "g")
+    # средние построил, но информацию не несут особо, убрал
+    #plt.axvline(df_small["age"].mean(), color = "blue", alpha = 0.8, linestyle = "dashed")
+    #plt.axvline(df_small[df_small["genderCat"] == 0]["age"].mean(), color = "red", alpha = 0.8, linestyle = "dashed")
+    #plt.axvline(df_small[df_small["genderCat"] == 1]["age"].mean(), color = "green", alpha = 0.8, linestyle = "dashed")
+#    plt.legend(["совокупное", "женщины", "мужчины"])
+#    plt.xlabel("Возраст")
+#    plt.ylabel("Доля")
+#    plt.title("Распределение пациентов по возрасту")
+#    plt.show()
+    
+    df_small = DF[(DF.A > 17) & (DF.A < 90)].drop_duplicates(["client_cod", "genderCat", "age"])
+    weight = len(df_small)
+    weight0 = len(df_small[df_small["genderCat"] == 0])
+    weight1 = len(df_small[df_small["genderCat"] == 1])
+    bins_ = 70
+    df_small["A"].plot.hist(bins = bins_, alpha = 0.5, weights = [1./weight]*weight, color = "b")
+    df_small[df_small["genderCat"] == 0]["A"].plot.hist(bins = bins_, alpha = 0.5, weights = [1./weight0]*weight0, color = "r")
+    df_small[df_small["genderCat"] == 1]["A"].plot.hist(bins = bins_, legend = False, grid = True, alpha = 0.5, weights = [1./weight1]*weight1, color = "g")
     # средние построил, но информацию не несут особо, убрал
     #plt.axvline(df_small["age"].mean(), color = "blue", alpha = 0.8, linestyle = "dashed")
     #plt.axvline(df_small[df_small["genderCat"] == 0]["age"].mean(), color = "red", alpha = 0.8, linestyle = "dashed")
@@ -88,6 +106,8 @@ def gender_age_distribution(DF):
     plt.ylabel("Доля")
     plt.title("Распределение пациентов по возрасту")
     plt.show()
+    #print(df_small["A"].describe())
+    
     """
     Выводы из распределений:
     за стоматологической помощью больше обращается людей работоспособного возраста
@@ -237,7 +257,11 @@ DF["age"] = DF["birthday"].apply(lambda x: round((dt.date.today() - str_to_date(
 # создаю новый столбец, в котором дата имеет тип datetime.date для последующей работы с периодами
 DF["D"] = DF["date"].apply(str_to_date)
 
-#gender_age_distribution(DF)
+# в столбце age (выше) я получил возраст пациента на момент исследования (сейчас)
+# здесь я получаю возраст пациента на момент приема
+DF["A"] = DF.apply(lambda x: round((str_to_date(x.date, 0) - str_to_date(x.birthday, 0)).days / 365), axis = 1)
+
+gender_age_distribution(DF)
 #payed_distribution(DF)
 #insurers_distribution(DF)
 doctors = doctors_distribution(DF)
@@ -280,7 +304,7 @@ df["percent"] = df["repeat"]/df["all_unique"]
 print(df)
 df["percent"].plot.bar(rot = 0, xlabel = "Код врача", ylabel = "Процент ", grid = True)
 plt.title("Процент возвращающихся пациентов для каждого врача")
-plt.show()
+#plt.show()
 """
 метрика процента показала, что за все время работы стоматологии из врачей принятых в рассмотрение
 минимальный процент возвращающихся пациентов больше 16,
@@ -288,5 +312,8 @@ plt.show()
 """
 
 print(DF.info())
+#print(DF[["age", "A"]].describe())
+#print(DF[DF.A == DF.A.min()][DF.columns[:len(DF.columns)//2]])
+#print(DF[DF.A == DF.A.min()][DF.columns[len(DF.columns)//2+1:]])
 
 
