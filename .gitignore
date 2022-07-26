@@ -8,3 +8,4 @@ Dbc*
 *.dbf
 *.bat
 *.rtf
+__pycache__
