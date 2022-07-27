@@ -136,6 +136,7 @@ def color_string(n: int) -> str:
 
 if __name__ == "__main__":
     DF = load_and_prepare()
+    print(DF.info())
 
     """
     CRR для всего срока и всех врачей
@@ -170,12 +171,37 @@ if __name__ == "__main__":
     CRR ежегодно для всех врачей
     """
     CRR_by_year = list()
+    CRR_men_by_year = list()
+    CRR_woman_by_year = list()
+    crr_by_year = pd.DataFrame()
     for i in range(2014, 2022):
         # выбираем строки датафрейма, которые соответствуют i-му году
         df = DF[(DF.D > dt.date(i-1, 12, 31)) & (DF.D < dt.date(i+1, 1, 1))]["client_cod"].value_counts().reset_index()
         df.columns = list(df.columns[:-1]) + ["priems"]
         CRR_by_year.append(round(df[df.priems > 1]["index"].count() / df["index"].count(), 3))
-        print(f"CRR за {i} год для всех врачей:", CRR_by_year[-1])
+        #print(f"CRR за {i} год для всех врачей:", CRR_by_year[-1])
+        
+        df_men = DF[(DF.genderCat == 1) & (DF.D > dt.date(i-1, 12, 31)) & (DF.D < dt.date(i+1, 1, 1))]["client_cod"].value_counts().reset_index()
+        df_women = DF[(DF.genderCat == 0) & (DF.D > dt.date(i-1, 12, 31)) & (DF.D < dt.date(i+1, 1, 1))]["client_cod"].value_counts().reset_index()
+        df_men.columns = list(df_men.columns[:-1]) + ["priems"]
+        df_women.columns = list(df_women.columns[:-1]) + ["priems"]
+        CRR_men_by_year.append(round(df_men[df_men.priems > 1]["index"].count() / df_men["index"].count(), 3))
+        CRR_woman_by_year.append(round(df_women[df_women.priems > 1]["index"].count() / df_women["index"].count(), 3))
+        print(f"CRR, {i} год, полная: {CRR_by_year[-1]}, мужчины: {CRR_men_by_year[-1]}, женщины: {CRR_woman_by_year[-1]}")
+        row = {"men": CRR_men_by_year[-1], "full": CRR_by_year[-1], "woman": CRR_woman_by_year[-1]}
+        crr_by_year = pd.concat([crr_by_year, pd.DataFrame(row, index = [i])])
+
+    if False:
+        pirson = crr_by_year.reset_index()[["index", "men"]].corr()
+        print("Коэффициент Пирсона по мужчинам\n", pirson)
+        pirson = crr_by_year.reset_index()[["index", "woman"]].corr()
+        print("Коэффициент Пирсона по женщинам\n", pirson)
+        pirson = crr_by_year.reset_index()[["index", "full"]].corr()
+        print("Коэффициент Пирсона по совокупному\n", pirson)
+        crr_by_year.plot.bar(rot = 0, xlabel = "Год", ylabel = "CRR", grid = True)
+        plt.legend(["мужчины", "совокупный", "женщины"])
+        plt.title("Коэффициент удержания клиентов (Customer Retention Rate, CRR) по годам и полу")
+        plt.show()
 
     """
     CRR ежегодно для каждого врача
@@ -203,7 +229,7 @@ if __name__ == "__main__":
     #print(CRR_by_all_transp)
     print(CRR_by_all)
 
-    if True:
+    if False:
         fig, ax = plt.subplots()
         # список для легенды
         leg = []
