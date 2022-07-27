@@ -92,46 +92,48 @@ DF["insurerCat"] = DF["insurerCat"].astype("Int64")
 Надо добавить столбец с целевой переменной - вернулся пациент (1) или нет (0)
 Столбец client_cod не должен быть среди признаков - это идентификатор пациента как и ФИО
 """
-f = open("prediction.txt", "a")
-f.write(f"{dt.datetime.now().strftime('%Y-%m-%d %H-%M-%S.%f')}\n")
-fCV = open("predictionCV.txt", "a")
-fCV.write(f"{dt.datetime.now().strftime('%Y-%m-%d %H-%M-%S.%f')}\n")
-fLDA = open("predictionLDA.txt", "a")
-fLDA.write(f"{dt.datetime.now().strftime('%Y-%m-%d %H-%M-%S.%f')}\n")
-fQDA = open("predictionQDA.txt", "a")
-fQDA.write(f"{dt.datetime.now().strftime('%Y-%m-%d %H-%M-%S.%f')}\n")
-for i in range(2014, 2022):
-    # делаю копию, чтобы не связываться с view
-    DF_ = DF[(DF.D > dt.date(i-1, 12, 31)) & (DF.D < dt.date(i+1, 1, 1))].copy()
-    print(f"{i} год, записей {len(DF_)}")
-    f.write(f"{i} год, записей {len(DF_)}\n")
-    fCV.write(f"{i} год, записей {len(DF_)}\n")
-    fLDA.write(f"{i} год, записей {len(DF_)}\n")
-    fQDA.write(f"{i} год, записей {len(DF_)}\n")
-    # в столбце D данные имеют тип datetime.date, его надо перевести в целый или вещественный
-    # для прогнозирования в рамках года, эти данные перевожу в целый тип - день года
-    DF_.loc[:, "D"] = DF_["D"].apply(lambda x: (x - dt.date(x.year, 1, 1)).days)
-    # для добавления столбца с целевой переменной надо составить датафрейм с идентификаторами пациентов и их количеством посещений
-    df = DF_["client_cod"].value_counts().reset_index()
-    df.columns = ["client_cod", "priems"]
-    df["return"] = df["priems"].apply(lambda x: int(1) if x > 1 else int(0))
-    DF_ = DF_.merge(df[["client_cod", "return"]], how = "inner", on = "client_cod")
-    print("LogisticRegression...", end = "")
-    one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return"]))], DF_["return"], "LogisticRegression", f)
-    print("LogisticRegressionCV...", end = "")
-    one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return"]))], DF_["return"], "LogisticRegressionCV", fCV)
-    print("LinearDiscriminantAnalysis...", end = "")
-    one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return"]))], DF_["return"], "LinearDiscriminantAnalysis", fLDA)
-    print("QuadraticDiscriminantAnalysis...")
-    one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return"]))], DF_["return"], "QuadraticDiscriminantAnalysis", fQDA)
-    print()
-    f.write("\n")
-    fCV.write("\n")
-    fLDA.write("\n")
-    fQDA.write("\n")
+# реализация моделей классификации-предсказания в пределах одного года
+if False:
+    f = open("prediction.txt", "a")
+    f.write(f"{dt.datetime.now().strftime('%Y-%m-%d %H-%M-%S.%f')}\n")
+    fCV = open("predictionCV.txt", "a")
+    fCV.write(f"{dt.datetime.now().strftime('%Y-%m-%d %H-%M-%S.%f')}\n")
+    fLDA = open("predictionLDA.txt", "a")
+    fLDA.write(f"{dt.datetime.now().strftime('%Y-%m-%d %H-%M-%S.%f')}\n")
+    fQDA = open("predictionQDA.txt", "a")
+    fQDA.write(f"{dt.datetime.now().strftime('%Y-%m-%d %H-%M-%S.%f')}\n")
+    for i in range(2014, 2022):
+        # делаю копию, чтобы не связываться с view
+        DF_ = DF[(DF.D > dt.date(i-1, 12, 31)) & (DF.D < dt.date(i+1, 1, 1))].copy()
+        print(f"{i} год, записей {len(DF_)}")
+        f.write(f"{i} год, записей {len(DF_)}\n")
+        fCV.write(f"{i} год, записей {len(DF_)}\n")
+        fLDA.write(f"{i} год, записей {len(DF_)}\n")
+        fQDA.write(f"{i} год, записей {len(DF_)}\n")
+        # в столбце D данные имеют тип datetime.date, его надо перевести в целый или вещественный
+        # для прогнозирования в рамках года, эти данные перевожу в целый тип - день года
+        DF_.loc[:, "D"] = DF_["D"].apply(lambda x: (x - dt.date(x.year, 1, 1)).days)
+        # для добавления столбца с целевой переменной надо составить датафрейм с идентификаторами пациентов и их количеством посещений
+        df = DF_["client_cod"].value_counts().reset_index()
+        df.columns = ["client_cod", "priems"]
+        df["return"] = df["priems"].apply(lambda x: int(1) if x > 1 else int(0))
+        DF_ = DF_.merge(df[["client_cod", "return"]], how = "inner", on = "client_cod")
+        print("LogisticRegression...", end = "")
+        one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return"]))], DF_["return"], "LogisticRegression", f)
+        print("LogisticRegressionCV...", end = "")
+        one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return"]))], DF_["return"], "LogisticRegressionCV", fCV)
+        print("LinearDiscriminantAnalysis...", end = "")
+        one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return"]))], DF_["return"], "LinearDiscriminantAnalysis", fLDA)
+        print("QuadraticDiscriminantAnalysis...")
+        one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return"]))], DF_["return"], "QuadraticDiscriminantAnalysis", fQDA)
+        print()
+        f.write("\n")
+        fCV.write("\n")
+        fLDA.write("\n")
+        fQDA.write("\n")
 
-f.close()
-fCV.close()
-fLDA.close()
-fQDA.close()
+    f.close()
+    fCV.close()
+    fLDA.close()
+    fQDA.close()
 
