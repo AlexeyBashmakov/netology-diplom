@@ -77,7 +77,6 @@ def one_year_predict(x: pd.DataFrame, y: pd.Series, name_model: str = "LogisticR
     # матрица ошибок
     print("Матрица ошибок:\n", confusion_matrix(y_test, model_predict_test), file = file_)
 
-
 # загружаю данные и готовлю
 DF = load_and_prepare()
 # отбрасываю 2013-й год
@@ -119,13 +118,13 @@ if False:
         df["return"] = df["priems"].apply(lambda x: int(1) if x > 1 else int(0))
         DF_ = DF_.merge(df[["client_cod", "return"]], how = "inner", on = "client_cod")
         print("LogisticRegression...", end = "")
-        one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return"]))], DF_["return"], "LogisticRegression", f)
+        one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return", "D"]))], DF_["return"], "LogisticRegression", f)
         print("LogisticRegressionCV...", end = "")
-        one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return"]))], DF_["return"], "LogisticRegressionCV", fCV)
+        one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return", "D"]))], DF_["return"], "LogisticRegressionCV", fCV)
         print("LinearDiscriminantAnalysis...", end = "")
-        one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return"]))], DF_["return"], "LinearDiscriminantAnalysis", fLDA)
+        one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return", "D"]))], DF_["return"], "LinearDiscriminantAnalysis", fLDA)
         print("QuadraticDiscriminantAnalysis...")
-        one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return"]))], DF_["return"], "QuadraticDiscriminantAnalysis", fQDA)
+        one_year_predict(DF_[list(set(DF_.columns) - set(["client_cod", "return", "D"]))], DF_["return"], "QuadraticDiscriminantAnalysis", fQDA)
         print()
         f.write("\n")
         fCV.write("\n")
@@ -136,4 +135,100 @@ if False:
     fCV.close()
     fLDA.close()
     fQDA.close()
+    
+    """
+    Точность предсказаний моделей на данных за один год:
+    1) модель логистической регрессии - точность от 53% до 79%
+    2) модель логистической регрессии с кросс-валидацией - точность от 59% до 79%
+    3) модель линейного дискриминантного анализа - точность от 59% до 79%
+    4) модель квадратичного дискриминантного анализа - точность от 27% до 79%
+    """
+
+# реализация моделей классификации-предсказания в пределах всего доступного исторического периода
+if True:
+    # для добавления столбца с целевой переменной надо составить датафрейм с идентификаторами пациентов и их количеством посещений
+    df = DF["client_cod"].value_counts().reset_index()
+    df.columns = ["client_cod", "priems"]
+    df["return"] = df["priems"].apply(lambda x: int(1) if x > 1 else int(0))
+    DF = DF.merge(df[["client_cod", "return"]], how = "inner", on = "client_cod")
+    
+    DF_ = DF[DF.D < dt.date(2022, 1, 1)].copy()
+    print(f"Всего записей {len(DF_)}")
+    
+    # данные для обучения
+    x_train = DF_[list(set(DF_.columns) - set(["client_cod", "return", "D"]))]
+    y_train = DF_["return"]
+    # проверочные данные
+    x_test = DF[DF.D > dt.date(2021, 12, 31)][list(set(DF_.columns) - set(["client_cod", "return", "D"]))]
+    y_test = DF[DF.D > dt.date(2021, 12, 31)]["return"]
+    # максимальное число итераций
+    maxIter = 1000
+    print("модель логистической регрессии")
+    # создаю и обучаю модель LogisticRegression
+    model = LogisticRegression(max_iter = maxIter, random_state = 0).fit(x_train, y_train)
+    # предсказания модели
+    model_predict_train = model.predict(x_train)
+    model_predict_test = model.predict(x_test)
+    # качество на обучающей выборке
+    print("СКО на обучающей выборке:", mean_squared_error(y_train, model_predict_train))
+    # качество на тестовой выборке
+    print("СКО на тестовой выборке :", mean_squared_error(y_test, model_predict_test))
+    # расчет точности
+    print("Расчет точности:", accuracy_score(y_test, model_predict_test))
+    # матрица ошибок
+    print("Матрица ошибок:\n", confusion_matrix(y_test, model_predict_test))
+    
+    print("модель логистической регрессии с кросс-валидацией")
+    # создаю и обучаю модель LogisticRegressionCV
+    model = LogisticRegressionCV(cv = 10, max_iter = maxIter, random_state = 0).fit(x_train, y_train)
+    # предсказания модели
+    model_predict_train = model.predict(x_train)
+    model_predict_test = model.predict(x_test)
+    # качество на обучающей выборке
+    print("СКО на обучающей выборке:", mean_squared_error(y_train, model_predict_train))
+    # качество на тестовой выборке
+    print("СКО на тестовой выборке :", mean_squared_error(y_test, model_predict_test))
+    # расчет точности
+    print("Расчет точности:", accuracy_score(y_test, model_predict_test))
+    # матрица ошибок
+    print("Матрица ошибок:\n", confusion_matrix(y_test, model_predict_test))
+    
+    print("модель линейного дискриминантного анализа")
+    # создаю и обучаю модель LinearDiscriminantAnalysis
+    model = LinearDiscriminantAnalysis().fit(x_train, y_train)
+    # предсказания модели
+    model_predict_train = model.predict(x_train)
+    model_predict_test = model.predict(x_test)
+    # качество на обучающей выборке
+    print("СКО на обучающей выборке:", mean_squared_error(y_train, model_predict_train))
+    # качество на тестовой выборке
+    print("СКО на тестовой выборке :", mean_squared_error(y_test, model_predict_test))
+    # расчет точности
+    print("Расчет точности:", accuracy_score(y_test, model_predict_test))
+    # матрица ошибок
+    print("Матрица ошибок:\n", confusion_matrix(y_test, model_predict_test))
+    
+    print("модель квадратичного дискриминантного анализа")
+    # создаю и обучаю модель QuadraticDiscriminantAnalysis
+    model = QuadraticDiscriminantAnalysis().fit(x_train, y_train)
+    # предсказания модели
+    model_predict_train = model.predict(x_train)
+    model_predict_test = model.predict(x_test)
+    # качество на обучающей выборке
+    print("СКО на обучающей выборке:", mean_squared_error(y_train, model_predict_train))
+    # качество на тестовой выборке
+    print("СКО на тестовой выборке :", mean_squared_error(y_test, model_predict_test))
+    # расчет точности
+    print("Расчет точности:", accuracy_score(y_test, model_predict_test))
+    # матрица ошибок
+    print("Матрица ошибок:\n", confusion_matrix(y_test, model_predict_test))
+    
+    """
+    Точность предсказаний моделей на данных за восемь лет:
+    1) модель логистической регрессии - точность 80%
+    2) модель логистической регрессии с кросс-валидацией - точность 80%
+    3) модель линейного дискриминантного анализа - точность 76%
+    4) модель квадратичного дискриминантного анализа - точность 75%
+    """
+
 
